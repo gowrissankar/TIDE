@@ -38,10 +38,6 @@ pub struct Board {
 }
 
 impl Board {
-    pub fn step_ahead(&mut self) {
-        println!("stepping...");
-    }
-
     //default initiator
     pub fn new(width: usize, height: usize) -> Self {
         Self::with_rules(width, height, Rules::default())
@@ -118,7 +114,7 @@ impl Board {
         count //no return statements bruhhh...
     }
 
-    pub fn step(&mut self) {
+    pub fn step_ahead(&mut self) {
         //calculates the nest gen
         //u built in next state in the def of board so use that
 
@@ -148,5 +144,44 @@ impl Board {
 
         //rewrite the board , no return
         std::mem::swap(&mut self.cells, &mut self.next);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_glider_progression() {
+        let mut board = Board::new(8, 8);
+        // seed glider
+        board.set(1, 0, true);
+        board.set(2, 1, true);
+        board.set(0, 2, true);
+        board.set(1, 2, true);
+        board.set(2, 2, true);
+
+        // after 4 steps, the glider should shift down-right by 1 cell diagonally
+        for _ in 0..4 {
+            board.step_ahead();
+        }
+
+        // check shifted positions
+        assert!(board.is_alive(2, 1));
+        assert!(board.is_alive(3, 2));
+        assert!(board.is_alive(1, 3));
+        assert!(board.is_alive(2, 3));
+        assert!(board.is_alive(3, 3));
+
+        // check other cells are dead
+        let mut alive_count = 0;
+        for y in 0..8 {
+            for x in 0..8 {
+                if board.is_alive(x, y) {
+                    alive_count += 1;
+                }
+            }
+        }
+        assert_eq!(alive_count, 5);
     }
 }

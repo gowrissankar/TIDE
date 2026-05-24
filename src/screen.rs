@@ -24,8 +24,11 @@ impl TerminalSession {
         let mut out = stdout();
 
         //send teminla commands to stdout
-        execute!(out, EnterAlternateScreen, Hide, Clear(ClearType::All))?;
-
+        if let Err(err) = execute!(out, EnterAlternateScreen, Hide, Clear(ClearType::All)) {
+            //rollback raw mode if terminal enter fails
+            let _ = disable_raw_mode();
+            return Err(err);
+        }
         Ok(Self)
     }
 }

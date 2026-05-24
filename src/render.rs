@@ -10,7 +10,7 @@ pub fn render_frame(board: &Board) -> String // read only borrow
     let rows = height.div_ceil(2);
 
     // pre allocate output buffer
-    let capacity = width * rows + rows;
+    let capacity = width * rows + 2 * rows;
     let mut output = String::with_capacity(capacity);
 
     // header
@@ -42,12 +42,13 @@ pub fn render_frame(board: &Board) -> String // read only borrow
                 (false, true) => '▄',
                 (false, false) => ' ',
             };
-
             output.push(cell_char);
         }
 
-        // newline after packed row
-        output.push('\n');
+        // newline after packed row, except for the last line to prevent scrolling
+        if y + 2 < height {
+            output.push_str("\r\n");
+        }
     }
 
     output
