@@ -1,11 +1,22 @@
 //conways engine
 
+//board API
+
+// new()
+// with_rules()
+// step_ahead()
+// is_alive()
+// set()
+// count_live_neighbors()
+// width()
+// height()
+
 //1d array for faster reading
 //indx = y *width + x
 
 pub struct Rules {
-    birth: Vec<u8>,
-    survive: Vec<u8>,
+    pub birth: Vec<u8>,
+    pub survive: Vec<u8>,
 }
 
 impl Default for Rules {
@@ -44,6 +55,15 @@ impl Board {
             next: vec![false; size],  //next board state , need curr asuch to gen new
             rules,
         }
+    }
+
+    //for other to read : encaps
+    pub fn width(&self) -> usize {
+        self.width
+    }
+
+    pub fn height(&self) -> usize {
+        self.height
     }
 
     fn idx(&self, x: usize, y: usize) -> usize {
