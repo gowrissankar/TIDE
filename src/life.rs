@@ -38,6 +38,10 @@ pub struct Board {
 }
 
 impl Board {
+    pub fn step_ahead(&mut self) {
+        println!("stepping...");
+    }
+
     //default initiator
     pub fn new(width: usize, height: usize) -> Self {
         Self::with_rules(width, height, Rules::default())
