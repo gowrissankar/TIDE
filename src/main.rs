@@ -7,20 +7,13 @@ mod screen;
 use life::Board;
 use render::render_frame;
 
-fn main() {
-    let mut board = Board::new(8, 8);
+use screen::TerminalSession;
+use std::{thread, time::Duration};
 
-    //glider
-    board.set(1, 0, true);
-    board.set(2, 1, true);
-    board.set(0, 2, true);
-    board.set(1, 2, true);
-    board.set(2, 2, true);
+fn main() -> std::io::Result<()> {
+    let _screen = TerminalSession::enter()?;
 
-    println!("{}", render_frame(&board));
+    thread::sleep(Duration::from_secs(3));
 
-    board.step();
-
-    println!("After step:\n");
-    println!("{}", render_frame(&board));
+    Ok(())
 }
