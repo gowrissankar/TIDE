@@ -1,0 +1,26 @@
+--- src/bin/tide-watch.rs
++++ src/bin/tide-watch.rs
+@@ -6,6 +6,7 @@
+ use std::os::unix::fs::OpenOptionsExt;
+ use std::process::Command;
+ use std::sync::mpsc;
++use std::os::unix::io::AsRawFd;
+ use std::thread;
+ use std::time::Duration;
+ 
+@@ -74,7 +75,15 @@
+     unsafe {
+         libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
+         libc::signal(libc::SIGTTOU, libc::SIG_IGN);
++        libc::signal(libc::SIGTTIN, libc::SIG_IGN);
+     }
++
++    if let Ok(dev_null) = OpenOptions::new().read(true).write(true).open("/dev/null") {
++        unsafe {
++            libc::dup2(dev_null.as_raw_fd(), 0);
++            libc::dup2(dev_null.as_raw_fd(), 1);
++            libc::dup2(dev_null.as_raw_fd(), 2);
++        }
++    }
+ 
+     let mut args = env::args();

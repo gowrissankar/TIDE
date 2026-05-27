@@ -1,0 +1,46 @@
+--- 0. Cleanup ---
+Starting tide-watch...
+
+--- 1. Verify watcher alive and NOT stopped ---
+    PID    PPID S TT       CMD
+ 137015  137010 S pts/4    tide-watch --tty /dev/pts/4
+
+--- 2. Verify lockfile ---
+-rw------- 1 kat kat  7 May 28 01:43 /tmp/tide-_dev_pts_4.pid
+-rw-r--r-- 1 kat kat 41 May 28 01:02 /tmp/tide-watch.log
+137015
+Existing tide-watch running (PID 105755)
+
+--- 3. Simulating Prompt to ARM ---
+Waiting for timeout (3 seconds)...
+
+--- 4. Verify Renderer (tide) is running ---
+    PID    PPID S TT       CMD
+ 128810   58642 R pts/9    /home/kat/.cargo/bin/tide
+ 129970   58642 R pts/9    /home/kat/.cargo/bin/tide
+ 130496   58642 R pts/9    /home/kat/.cargo/bin/tide
+ 133184   58642 R pts/4    /home/kat/.cargo/bin/tide
+ 137072  137015 S pts/4    /home/kat/.cargo/bin/tide
+Killing tide to simulate keypress exit...
+
+--- 5. Verify Repeated Retrigger Cycle ---
+Simulating Prompt to ARM again...
+Waiting for timeout (3 seconds)...
+    PID    PPID S TT       CMD
+ 128810   58642 R pts/9    /home/kat/.cargo/bin/tide
+ 129970   58642 R pts/9    /home/kat/.cargo/bin/tide
+ 130496   58642 R pts/9    /home/kat/.cargo/bin/tide
+ 133184   58642 R pts/4    /home/kat/.cargo/bin/tide
+ 137128  137015 S pts/4    /home/kat/.cargo/bin/tide
+Success! tide relaunched as PID 137128
+
+--- 6. Verify Watcher survives and No Zombies ---
+    PID    PPID S TT       CMD
+ 137015  137010 S pts/4    tide-watch --tty /dev/pts/4
+No zombies found
+
+--- 7. Test singleton behavior ---
+    PID    PPID S TT       CMD
+ 137015  137010 S pts/4    tide-watch --tty /dev/pts/4
+
+--- 8. Cleanup ---

@@ -10,7 +10,7 @@ use crossterm::{
     execute, //for terminal commands
     terminal::{
         Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode,
-        enable_raw_mode,
+        enable_raw_mode, EnableLineWrap, DisableLineWrap
     },
 };
 
@@ -18,28 +18,37 @@ pub struct TerminalSession;
 
 impl TerminalSession {
     pub fn enter() -> Result<Self> {
-        //raw mod eon
-        enable_raw_mode()?; //raw terminal , ? : error catcher exit early if error
+        // Setup robust panic hook for terminal cleanup
+        std::panic::set_hook(Box::new(|info| {
+            Self::cleanup();
+            eprintln!("\nPanic occurred: {}", info);
+        }));
+
+        enable_raw_mode()?;
 
         let mut out = stdout();
-
-        //send teminla commands to stdout
-        if let Err(err) = execute!(out, EnterAlternateScreen, Hide, Clear(ClearType::All)) {
-            //rollback raw mode if terminal enter fails
+        if let Err(err) = execute!(out, EnterAlternateScreen, Hide, Clear(ClearType::All), DisableLineWrap) {
             let _ = disable_raw_mode();
             return Err(err);
         }
         Ok(Self)
     }
+
+    pub fn cleanup() {
+        let mut out = stdout();
+        // best effort cleanup, explicitly restoring cursor, alternate screen, and line wrapping
+        let _ = execute!(
+            out,
+            Show,
+            LeaveAlternateScreen,
+            EnableLineWrap
+        );
+        let _ = disable_raw_mode();
+    }
 }
 
 impl Drop for TerminalSession {
     fn drop(&mut self) {
-        let mut out = stdout();
-
-        //best effort cleanup
-        let _ = execute!(out, Show, LeaveAlternateScreen,);
-
-        let _ = disable_raw_mode(); //  _ throwaway binding : loose result
+        Self::cleanup();
     }
 }
