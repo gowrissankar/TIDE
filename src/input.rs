@@ -12,26 +12,22 @@ pub enum InputEvent {
 }
 
 pub fn poll_event(timeout: Duration) -> Result<InputEvent> {
-    if !poll(timeout)? {
+    if !crossterm::event::poll(timeout)? {
         return Ok(InputEvent::None);
     }
 
-    let event = read()?;
+    let event = crossterm::event::read()?;
 
     match event {
-        Event::Key(key) => {
+        crossterm::event::Event::Key(key) => {
             //ign repeats and releases
-
-            if key.kind == KeyEventKind::Press {
+            if key.kind == crossterm::event::KeyEventKind::Press {
                 Ok(InputEvent::KeyPress(key.code, key.modifiers))
             } else {
                 Ok(InputEvent::None)
             }
         }
-
-        Event::Resize(width, height) => Ok(InputEvent::Resize(width, height)),
-
-        //anything else
+        crossterm::event::Event::Resize(width, height) => Ok(InputEvent::Resize(width, height)),
         _ => Ok(InputEvent::None),
     }
 }

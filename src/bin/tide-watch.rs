@@ -1,8 +1,8 @@
-use libc::{c_int, SIGUSR1, SIGUSR2, SIGCHLD, SIGTERM};
+use libc::{SIGCHLD, SIGTERM, SIGUSR1, SIGUSR2, c_int};
 use signal_hook::iterator::Signals;
 use std::env;
 use std::fs::{self, OpenOptions};
-use std::io::{Read, Write, ErrorKind};
+use std::io::{ErrorKind, Read, Write};
 use std::os::unix::fs::OpenOptionsExt;
 use std::process::Command;
 use std::sync::mpsc;
@@ -13,7 +13,7 @@ use std::time::Duration;
 enum State {
     Disarmed,
     Armed,
-    Rendering,
+    Rendering(libc::pid_t),
 }
 
 enum Event {
@@ -33,7 +33,9 @@ fn acquire_lock(tty: &str) -> std::io::Result<()> {
             if let Ok(pid) = content.trim().parse::<i32>() {
                 // Check if process exists
                 let kill_result = unsafe { libc::kill(pid, 0) };
-                if kill_result == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM) {
+                if kill_result == 0
+                    || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
+                {
                     std::process::exit(0);
                 } else {
                     let _ = fs::remove_file(&lock_path);
@@ -65,13 +67,12 @@ fn reap_children() {
         let mut status = 0;
         let pid = unsafe { libc::waitpid(-1, &mut status, libc::WNOHANG) };
         if pid <= 0 {
-            break; 
+            break;
         }
     }
 }
 
 use std::os::unix::io::AsRawFd;
-
 
 fn main() -> std::io::Result<()> {
     unsafe {
@@ -108,19 +109,19 @@ fn main() -> std::io::Result<()> {
 
     acquire_lock(&tty)?;
 
-    let timeout_secs: u64 = timeout_opt
-        .and_then(|s| s.parse().ok())
-        .unwrap_or_else(|| {
-            env::var("TIDE_TIMEOUT")
-                .unwrap_or_else(|_| "5".to_string())
-                .parse()
-                .unwrap_or(5)
-        });
+    //set time here
+
+    let timeout_secs: u64 = timeout_opt.and_then(|s| s.parse().ok()).unwrap_or_else(|| {
+        env::var("TIDE_TIMEOUT")
+            .unwrap_or_else(|_| "5".to_string())
+            .parse()
+            .unwrap_or(5)
+    });
     let timeout = Duration::from_secs(timeout_secs);
 
     let (tx, rx) = mpsc::channel();
     let mut signals = Signals::new(&[SIGUSR1, SIGUSR2, SIGCHLD, SIGTERM])?;
-    
+
     thread::spawn(move || {
         for sig in signals.forever() {
             let _ = tx.send(Event::Signal(sig));
@@ -146,7 +147,7 @@ fn main() -> std::io::Result<()> {
                         _ => {}
                     }
                 } else {
-                    break; 
+                    break;
                 }
             }
             State::Armed => {
@@ -171,16 +172,19 @@ fn main() -> std::io::Result<()> {
                     Err(mpsc::RecvTimeoutError::Timeout) => {
                         let exe_dir = std::env::current_exe()?.parent().unwrap().to_path_buf();
                         let tide_path = exe_dir.join("tide");
-                        
+
                         if let Ok(tty_file) = OpenOptions::new().read(true).write(true).open(&tty) {
                             match Command::new(tide_path)
                                 .stdin(std::process::Stdio::from(tty_file.try_clone().unwrap()))
                                 .stdout(std::process::Stdio::from(tty_file.try_clone().unwrap()))
-                                .stderr(std::process::Stdio::from(tty_file))
+                                .stderr(std::process::Stdio::from(tty_file.try_clone().unwrap()))
                                 .spawn() 
                             {
-                                Ok(_) => {
-                                    state = State::Rendering;
+                                Ok(child) => {
+                                    let fd = tty_file.as_raw_fd();
+                                    let shell_pgrp = unsafe { libc::tcgetpgrp(fd) };
+                                    unsafe { libc::tcsetpgrp(fd, child.id() as libc::pid_t); }
+                                    state = State::Rendering(shell_pgrp);
                                 }
                                 Err(_e) => {
                                     state = State::Disarmed;
@@ -196,14 +200,20 @@ fn main() -> std::io::Result<()> {
                     }
                 }
             }
-            State::Rendering => {
+            State::Rendering(shell_pgrp) => {
                 if let Ok(Event::Signal(sig)) = rx.recv() {
                     match sig {
                         SIGCHLD => {
+                            if let Ok(tty_file) = OpenOptions::new().read(true).write(true).open(&tty) {
+                                unsafe { libc::tcsetpgrp(tty_file.as_raw_fd(), shell_pgrp); }
+                            }
                             reap_children();
                             state = State::Disarmed;
                         }
                         SIGTERM => {
+                            if let Ok(tty_file) = OpenOptions::new().read(true).write(true).open(&tty) {
+                                unsafe { libc::tcsetpgrp(tty_file.as_raw_fd(), shell_pgrp); }
+                            }
                             reap_children(); 
                             break;
                         }
